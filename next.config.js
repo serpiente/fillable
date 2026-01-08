@@ -1,15 +1,13 @@
-/** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
   images: {
     remotePatterns: [
-      // NextJS <Image> component needs to whitelist domains for src={}
       {
         protocol: "https",
         hostname: "lh3.googleusercontent.com",
       },
       {
-        protocol: "https", 
+        protocol: "https",
         hostname: "pbs.twimg.com",
       },
       {
@@ -22,16 +20,35 @@ const nextConfig = {
       },
     ],
   },
+  turbopack: {
+    rules: {
+      "*.svg": {
+        loaders: ["@svgr/webpack"],
+        as: "*.js",
+      },
+    },
+  },
   webpack: (config, { webpack, isServer }) => {
-    // Ignore MongoDB's optional dependencies to prevent build warnings
-    if (isServer) {
-      config.plugins.push(
-        new webpack.IgnorePlugin({
-          resourceRegExp: /^(kerberos|@mongodb-js\/zstd|@aws-sdk\/credential-providers|gcp-metadata|snappy|socks|aws4|mongodb-client-encryption)$/,
-        })
-      );
-    }
-    
+    // Suppress specific warnings from Supabase realtime-js and Edge Runtime compatibility
+    config.ignoreWarnings = [
+      {
+        module: /node_modules\/@supabase\/realtime-js/,
+        message: /Critical dependency: the request of a dependency is an expression/,
+      },
+      {
+        module: /node_modules\/@supabase\/realtime-js/,
+        message: /A Node\.js API is used \(process\.versions/,
+      },
+      {
+        module: /node_modules\/@supabase\/realtime-js/,
+        message: /A Node\.js API is used \(process\.version/,
+      },
+      {
+        module: /node_modules\/@supabase\/supabase-js/,
+        message: /A Node\.js API is used \(process\.version/,
+      },
+    ];
+
     return config;
   },
 };

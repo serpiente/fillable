@@ -36,6 +36,7 @@ const Footer = () => {
             <p className="mt-3 text-sm text-base-content/60">
               Copyright © {new Date().getFullYear()} - All rights reserved
             </p>
+
             <a
               href="https://shipfa.st/?ref=shipfast_badge"
               title="Go to ShipFast"

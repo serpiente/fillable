@@ -1,35 +1,45 @@
-import { NextResponse } from "next/server";
-import { headers } from "next/headers";
-import Stripe from "stripe";
-import connectMongo from "@/libs/mongoose";
 import configFile from "@/config";
-import User from "@/models/User";
 import { findCheckoutSession } from "@/libs/stripe";
-
-// Initialize Stripe only if the secret key is available
-const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+import { createClient } from "@supabase/supabase-js";
+import { headers } from "next/headers";
+import { NextResponse } from "next/server";
+import Stripe from "stripe";
 
 // This is where we receive Stripe webhook events
 // It used to update the user data, send emails, etc...
 // By default, it'll store the user in the database
 // See more: https://shipfa.st/docs/features/payments
 export async function POST(req) {
-  // Check if Stripe is configured
-  if (!stripe || !webhookSecret) {
-    console.error("Stripe is not configured properly. Missing STRIPE_SECRET_KEY or STRIPE_WEBHOOK_SECRET");
-    return NextResponse.json({ error: "Stripe configuration missing" }, { status: 500 });
+  // Check for required environment variables
+  if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET) {
+    console.error("Missing required Stripe environment variables");
+    return NextResponse.json(
+      { error: "Server configuration error" },
+      { status: 500 }
+    );
   }
 
-  await connectMongo();
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+    apiVersion: "2023-08-16",
+  });
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
   const body = await req.text();
-
   const signature = (await headers()).get("stripe-signature");
 
-  let data;
   let eventType;
   let event;
+
+  // Create a private supabase client using the secret service_role API key
+  // Disable realtime to reduce Edge Runtime warnings
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    {
+      auth: { persistSession: false },
+      realtime: { disabled: true }
+    }
+  );
 
   // verify Stripe event is legit
   try {
@@ -39,7 +49,6 @@ export async function POST(req) {
     return NextResponse.json({ error: err.message }, { status: 400 });
   }
 
-  data = event.data;
   eventType = event.type;
 
   try {
@@ -47,48 +56,89 @@ export async function POST(req) {
       case "checkout.session.completed": {
         // First payment is successful and a subscription is created (if mode was set to "subscription" in ButtonCheckout)
         // ✅ Grant access to the product
+        const stripeObject = event.data.object;
 
-        const session = await findCheckoutSession(data.object.id);
+        const session = await findCheckoutSession(stripeObject.id);
 
         const customerId = session?.customer;
         const priceId = session?.line_items?.data[0]?.price.id;
-        const userId = data.object.client_reference_id;
+        const userId = stripeObject.client_reference_id;
         const plan = configFile.stripe.plans.find((p) => p.priceId === priceId);
-
-        if (!plan) break;
 
         const customer = await stripe.customers.retrieve(customerId);
 
+        if (!plan) break;
+
         let user;
-
-        // Get or create the user. userId is normally pass in the checkout session (clientReferenceID) to identify the user when we get the webhook event
-        if (userId) {
-          user = await User.findById(userId);
-        } else if (customer.email) {
-          user = await User.findOne({ email: customer.email });
-
-          if (!user) {
-            user = await User.create({
+        if (!userId) {
+          // check if user already exists
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("email", customer.email)
+            .single();
+          if (profile) {
+            user = profile;
+          } else {
+            // create a new user using supabase auth admin
+            const { data, error: authError } = await supabase.auth.admin.createUser({
               email: customer.email,
-              name: customer.name,
             });
 
-            await user.save();
+            if (authError) {
+              console.error("Failed to create auth user:", authError);
+              throw authError;
+            }
+
+            user = data?.user;            
+            if (user?.id) {
+              await new Promise(resolve => setTimeout(resolve, 100));
+              
+              const { data: existingProfile } = await supabase
+                .from("profiles")
+                .select("*")
+                .eq("id", user.id)
+                .single();
+              
+              if (existingProfile) {
+                user = existingProfile;
+              }
+            }
           }
         } else {
-          console.error("No user found");
-          throw new Error("No user found");
+          // find user by ID
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", userId)
+            .single();
+
+          user = profile;
         }
 
-        // Update user data + Grant user access to your product. It's a boolean in the database, but could be a number of credits, etc...
-        user.priceId = priceId;
-        user.customerId = customerId;
-        user.hasAccess = true;
-        await user.save();
+        if (!user?.id) {
+          console.error("User ID is null, cannot create/update profile");
+          throw new Error("User ID is required for profile creation");
+        }
+
+        const { error } = await supabase
+          .from("profiles")
+          .upsert({
+            id: user.id,
+            email: customer.email,
+            customer_id: customerId,
+            price_id: priceId,
+            has_access: true,
+          });
+
+        if (error) {
+          console.error("Failed to upsert profile:", error);
+          throw error;
+        }
 
         // Extra: send email with user link, product page, etc...
         // try {
-        //   await sendEmail({to: ...});
+        //   await sendEmail(...);
         // } catch (e) {
         //   console.error("Email issue:" + e?.message);
         // }
@@ -112,33 +162,40 @@ export async function POST(req) {
       case "customer.subscription.deleted": {
         // The customer subscription stopped
         // ❌ Revoke access to the product
-        // The customer might have changed the plan (higher or lower plan, cancel soon etc...)
+        const stripeObject = event.data.object;
         const subscription = await stripe.subscriptions.retrieve(
-          data.object.id
+          stripeObject.id
         );
-        const user = await User.findOne({ customerId: subscription.customer });
 
-        // Revoke access to your product
-        user.hasAccess = false;
-        await user.save();
-
+        await supabase
+          .from("profiles")
+          .update({ has_access: false })
+          .eq("customer_id", subscription.customer);
         break;
       }
 
       case "invoice.paid": {
         // Customer just paid an invoice (for instance, a recurring payment for a subscription)
         // ✅ Grant access to the product
-        const priceId = data.object.lines.data[0].price.id;
-        const customerId = data.object.customer;
+        const stripeObject = event.data.object;
+        const priceId = stripeObject.lines.data[0].price.id;
+        const customerId = stripeObject.customer;
 
-        const user = await User.findOne({ customerId });
+        // Find profile where customer_id equals the customerId (in table called 'profiles')
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("customer_id", customerId)
+          .single();
 
         // Make sure the invoice is for the same plan (priceId) the user subscribed to
-        if (user.priceId !== priceId) break;
+        if (profile.price_id !== priceId) break;
 
-        // Grant user access to your product. It's a boolean in the database, but could be a number of credits, etc...
-        user.hasAccess = true;
-        await user.save();
+        // Grant the profile access to your product. It's a boolean in the database, but could be a number of credits, etc...
+        await supabase
+          .from("profiles")
+          .update({ has_access: true })
+          .eq("customer_id", customerId);
 
         break;
       }
@@ -156,7 +213,7 @@ export async function POST(req) {
       // Unhandled event type
     }
   } catch (e) {
-    console.error("stripe error: " + e.message + " | EVENT TYPE: " + eventType);
+    console.error("stripe error: ", e.message);
   }
 
   return NextResponse.json({});

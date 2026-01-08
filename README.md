@@ -25,6 +25,7 @@ Reach out at hello@shipfa.st
 
 Let's ship it, FAST ⚡️
 
+\_
 
 **📈 Grow your startup with [DataFast](https://datafa.st?ref=shipfast_readme)**
 
@@ -34,4 +35,5 @@ Let's ship it, FAST ⚡️
 
 ShipFast members get 30% OFF on all plans! 🎁
 
-![datafast](https://github.com/user-attachments/assets/085453a6-8a66-45be-b7ea-a7a08e856ed8)
+![datafast](https://github.com/user-attachments/assets/a6e78034-701a-49f1-a297-d33590f963be)
+
