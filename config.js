@@ -53,7 +53,7 @@ const config = {
       {
         priceId:
           process.env.NODE_ENV === "development"
-            ? "price_1O5KtcAxyNprDp7iftKnrrpw"
+            ? "price_business_dev"
             : "price_789",
         name: "Business",
         description: "For teams & high volume",
