@@ -42,7 +42,7 @@ export async function POST(req) {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="filled-${file.name}"`,
+        "Content-Disposition": `inline; filename="filled-${file.name}"`,
       },
     });
   } catch (error) {

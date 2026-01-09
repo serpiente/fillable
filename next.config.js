@@ -27,8 +27,14 @@ const nextConfig = {
         as: "*.js",
       },
     },
+    resolveAlias: {
+      canvas: "./empty-module.js",
+    },
   },
   webpack: (config, { webpack, isServer }) => {
+    // Canvas is not needed for react-pdf in browser
+    config.resolve.alias.canvas = false;
+
     // Suppress specific warnings from Supabase realtime-js and Edge Runtime compatibility
     config.ignoreWarnings = [
       {
