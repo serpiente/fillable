@@ -61,7 +61,8 @@ export default function PdfUpload() {
       }
 
       const arrayBuffer = await response.arrayBuffer();
-      setPdfData(arrayBuffer);
+      // Store as Uint8Array to prevent ArrayBuffer detachment issues
+      setPdfData(new Uint8Array(arrayBuffer));
 
       toast.success("PDF converted! You can now fill the form.");
     } catch (error) {

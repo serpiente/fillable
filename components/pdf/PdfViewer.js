@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
@@ -20,6 +20,14 @@ export default function PdfViewer({
   const [currentPage, setCurrentPage] = useState(1);
   const [scale, setScale] = useState(0.6);
 
+  // Memoize the file object to prevent unnecessary reloads
+  const file = useMemo(() => {
+    if (!pdfData) return null;
+    // Create a copy of the data to prevent detachment issues
+    const copy = new Uint8Array(pdfData);
+    return { data: copy };
+  }, [pdfData]);
+
   const onDocumentLoadSuccess = useCallback(({ numPages }) => {
     setNumPages(numPages);
   }, []);
@@ -34,7 +42,7 @@ export default function PdfViewer({
       {/* PDF Document - Main focus */}
       <div className="flex-1 overflow-auto bg-base-200 flex justify-center p-4">
         <Document
-          file={pdfData}
+          file={file}
           onLoadSuccess={onDocumentLoadSuccess}
           loading={
             <div className="flex items-center justify-center p-8">
