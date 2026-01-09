@@ -7,22 +7,24 @@ import { useRef, useState } from "react";
 
 const faqList = [
   {
-    question: "What do I get exactly?",
-    answer: <div className="space-y-2 leading-relaxed">Loreum Ipseum</div>,
-  },
-  {
-    question: "Can I get a refund?",
+    question: "Is my PDF data secure?",
     answer: (
-      <p>
-        Yes! You can request a refund within 7 days of your purchase. Reach out
-        by email.
-      </p>
+      <div className="space-y-2 leading-relaxed">
+        Yes, your privacy is our priority. We do not store your PDFs. Your
+        documents are processed instantly and are never saved on our servers.
+        Once the conversion is complete, the file is immediately discarded.
+      </div>
     ),
   },
   {
-    question: "I have another question",
+    question: "How does it work?",
     answer: (
-      <div className="space-y-2 leading-relaxed">Cool, contact us by email</div>
+      <div className="space-y-2 leading-relaxed">
+        Our AI analyzes your PDF using artificial intelligence to automatically
+        detect form fields such as text boxes, checkboxes, and signature areas.
+        Once detected, we make those fields fillable so you can complete the
+        form directly in your browser and download the filled document.
+      </div>
     ),
   },
 ];

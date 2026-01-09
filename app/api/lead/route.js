@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 // This route is used to store the leads that are generated from the landing page.
-// The API call is initiated by <ButtonLead /> component
+// The API call is initiated by <ButtonLead /> component and <EmailGateModal />
 export async function POST(req) {
   const body = await req.json();
 
@@ -9,18 +9,31 @@ export async function POST(req) {
     return NextResponse.json({ error: "Email is required" }, { status: 400 });
   }
 
+  // Basic email format validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(body.email)) {
+    return NextResponse.json({ error: "Invalid email format" }, { status: 400 });
+  }
+
   try {
-    // Here you can add your own logic
-    // For instance, sending a welcome email (use the the sendEmail helper function from /libs/resend)
-    // For instance, saving the lead in the database (uncomment the code below)
+    const { createClient } = await import("@/libs/supabase/server");
+    const supabase = await createClient();
 
-    // const { createClient } = await import("@/libs/supabase/server");
-    // const supabase = await createClient();
-    // await supabase.from("leads").insert({ email: body.email });
+    const { error } = await supabase
+      .from("leads")
+      .insert({ email: body.email });
 
-    return NextResponse.json({});
+    if (error) {
+      // Handle duplicates gracefully - email already exists is not an error for the user
+      if (error.code === "23505") {
+        return NextResponse.json({ success: true, existing: true });
+      }
+      throw error;
+    }
+
+    return NextResponse.json({ success: true });
   } catch (e) {
-    console.error(e);
+    console.error("Lead insert error:", e);
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }

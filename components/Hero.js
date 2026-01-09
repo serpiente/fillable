@@ -1,4 +1,3 @@
-import TestimonialsAvatars from "./TestimonialsAvatars";
 import HeroAnimation from "./HeroAnimation";
 
 const Hero = () => {
@@ -14,8 +13,6 @@ const Hero = () => {
         <a href="#upload" className="btn btn-primary btn-wide">
           Convert Your PDF
         </a>
-
-        <TestimonialsAvatars priority={true} />
       </div>
       <div className="lg:w-full flex items-center justify-center">
         <HeroAnimation />

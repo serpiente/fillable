@@ -3,25 +3,20 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import ButtonSignin from "./ButtonSignin";
 import config from "@/config";
 
 const links = [
-  {
-    href: "/#pricing",
-    label: "Pricing",
-  },
-  {
-    href: "/#testimonials",
-    label: "Reviews",
-  },
   {
     href: "/#faq",
     label: "FAQ",
   },
 ];
 
-const cta = <ButtonSignin extraStyle="btn-primary" />;
+const cta = (
+  <Link href="/#upload" className="btn btn-primary">
+    Convert PDF
+  </Link>
+);
 
 // A header with a logo on the left, links in the center (like Pricing, etc...), and a CTA (like Get Started or Login) on the right.
 // The header is responsive, and on mobile, the links are hidden behind a burger button.
