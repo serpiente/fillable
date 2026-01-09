@@ -44,7 +44,7 @@ const TestimonialsAvatars = ({ priority = false }) => {
 
       {/* RATING */}
       <div className="flex flex-col justify-center items-center md:items-start gap-1">
-        <div className="rating">
+        <div className="flex gap-0.5">
           {[...Array(5)].map((_, i) => (
             <svg
               xmlns="http://www.w3.org/2000/svg"
